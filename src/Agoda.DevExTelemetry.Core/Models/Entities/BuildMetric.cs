@@ -3,6 +3,7 @@ namespace Agoda.DevExTelemetry.Core.Models.Entities;
 public class BuildMetric
 {
     public string Id { get; set; } = string.Empty;
+    public string? SessionId { get; set; }
     public DateTime ReceivedAt { get; set; }
     public string UserName { get; set; } = string.Empty;
     public int CpuCount { get; set; }
