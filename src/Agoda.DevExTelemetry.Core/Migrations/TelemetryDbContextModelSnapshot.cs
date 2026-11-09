@@ -87,6 +87,9 @@ namespace Agoda.DevExTelemetry.Core.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<long?>("SpooledAt")
+                        .HasColumnType("INTEGER");
+
                     b.Property<double>("TimeTakenMs")
                         .HasColumnType("REAL");
 
@@ -112,159 +115,6 @@ namespace Agoda.DevExTelemetry.Core.Migrations
                     b.HasIndex("SessionId");
 
                     b.ToTable("BuildMetrics");
-                });
-
-            modelBuilder.Entity("Agoda.DevExTelemetry.Core.Models.Entities.CommandEvent", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Branch")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool?>("ColdInstall")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Command")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("CommitSha")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("CpuCount")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<double?>("DomContentLoadedMs")
-                        .HasColumnType("REAL");
-
-                    b.Property<int?>("ErrorCount")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("ExitCode")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("ExtraData")
-                        .HasColumnType("TEXT");
-
-                    b.Property<double?>("FirstContentfulPaintMs")
-                        .HasColumnType("REAL");
-
-                    b.Property<string>("Hostname")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool?>("LockfileChanged")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("MeasurementSource")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Os")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("PackageManager")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("PackageManagerVersion")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Phase")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Platform")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool?>("Prebundled")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("ProjectName")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("ReceivedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Repository")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("RepositoryName")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("SessionId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Signal")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("SourceEndpoint")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<long?>("SpooledAt")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("Success")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<double>("TimeTakenMs")
-                        .HasColumnType("REAL");
-
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("UserName")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("MeasurementSource");
-
-                    b.HasIndex("Phase");
-
-                    b.HasIndex("ProjectName");
-
-                    b.HasIndex("ReceivedAt");
-
-                    b.HasIndex("SessionId");
-
-                    b.HasIndex("SourceEndpoint");
-
-                    b.ToTable("CommandEvents");
-                });
-
-            modelBuilder.Entity("Agoda.DevExTelemetry.Core.Models.Entities.CommandEventNpmTimer", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("CommandEventId")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<double>("DurationMs")
-                        .HasColumnType("REAL");
-
-                    b.Property<string>("TimerName")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CommandEventId");
-
-                    b.HasIndex("TimerName");
-
-                    b.ToTable("CommandEventNpmTimers");
                 });
 
             modelBuilder.Entity("Agoda.DevExTelemetry.Core.Models.Entities.RawPayload", b =>
@@ -439,17 +289,6 @@ namespace Agoda.DevExTelemetry.Core.Migrations
                     b.ToTable("TestRuns");
                 });
 
-            modelBuilder.Entity("Agoda.DevExTelemetry.Core.Models.Entities.CommandEventNpmTimer", b =>
-                {
-                    b.HasOne("Agoda.DevExTelemetry.Core.Models.Entities.CommandEvent", "CommandEvent")
-                        .WithMany("NpmTimers")
-                        .HasForeignKey("CommandEventId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("CommandEvent");
-                });
-
             modelBuilder.Entity("Agoda.DevExTelemetry.Core.Models.Entities.TestCase", b =>
                 {
                     b.HasOne("Agoda.DevExTelemetry.Core.Models.Entities.TestRun", "TestRun")
@@ -459,11 +298,6 @@ namespace Agoda.DevExTelemetry.Core.Migrations
                         .IsRequired();
 
                     b.Navigation("TestRun");
-                });
-
-            modelBuilder.Entity("Agoda.DevExTelemetry.Core.Models.Entities.CommandEvent", b =>
-                {
-                    b.Navigation("NpmTimers");
                 });
 
             modelBuilder.Entity("Agoda.DevExTelemetry.Core.Models.Entities.TestRun", b =>

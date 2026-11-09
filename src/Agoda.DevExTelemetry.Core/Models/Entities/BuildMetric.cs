@@ -23,5 +23,6 @@ public class BuildMetric
     public bool IsDebuggerAttached { get; set; }
     public string ExecutionEnvironment { get; set; } = string.Empty;
     public string SourceEndpoint { get; set; } = string.Empty;
+    public long? SpooledAt { get; set; }
     public string? ExtraData { get; set; }
 }

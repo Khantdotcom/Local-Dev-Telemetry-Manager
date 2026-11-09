@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Globalization;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -10,152 +9,108 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Agoda.DevExTelemetry.WebApi.Controllers;
 
+/// <summary>
+/// <c>POST /command</c>: a devfeedback-js <c>CommandBuildData</c> event (install, dev server, package script or
+/// task-runner target), stored as a BuildMetric with <c>MetricType = "command"</c>.
+/// </summary>
 [ApiController]
 public class CommandController : ControllerBase
 {
-    private static readonly string[] AllowedPhases =
-    {
-        "install",
-        "codegen",
-        "typecheck",
-        "lint",
-        "test",
-        "build",
-        "devserver",
-        "clientready"
-    };
+    private const string MetricType = "command";
 
-    private readonly IBackgroundTaskQueue<IngestCommandEventWorkItem> _queue;
+    private readonly IBackgroundTaskQueue<IngestBuildMetricWorkItem> _queue;
+    private readonly IEnvironmentDetector _environmentDetector;
+    private readonly IBuildCategoryClassifier _classifier;
 
-    public CommandController(IBackgroundTaskQueue<IngestCommandEventWorkItem> queue)
+    public CommandController(
+        IBackgroundTaskQueue<IngestBuildMetricWorkItem> queue,
+        IEnvironmentDetector environmentDetector,
+        IBuildCategoryClassifier classifier)
     {
         _queue = queue;
+        _environmentDetector = environmentDetector;
+        _classifier = classifier;
     }
 
     [HttpPost("command")]
     [RequestSizeLimit(500 * 1024 * 1024)]
     public async Task<IActionResult> Ingest([FromBody] CommandPayload payload)
     {
-        if (!string.Equals(payload.Type, "command", StringComparison.OrdinalIgnoreCase))
-            return BadRequest(new { error = "Invalid type value" });
+        var platformStr = payload.Platform.ToString();
+        var environment = _environmentDetector.Detect(payload.Hostname, false, platformStr, null);
+        var (buildCategory, reloadType) = _classifier.Classify(MetricType, null);
 
-        if (string.IsNullOrWhiteSpace(payload.Phase) ||
-            Array.IndexOf(AllowedPhases, payload.Phase.ToLowerInvariant()) < 0)
-        {
-            return BadRequest(new { error = "Invalid phase value" });
-        }
-
-        if (string.IsNullOrWhiteSpace(payload.Command))
-            return BadRequest(new { error = "command is required" });
-
-        if (!TryGetDouble(payload.TimeTaken, out var timeTakenMs) || !double.IsFinite(timeTakenMs) || timeTakenMs < 0)
+        if (!double.TryParse(payload.TimeTaken, NumberStyles.Float | NumberStyles.AllowThousands,
+                CultureInfo.InvariantCulture, out var timeTakenMs) && !string.IsNullOrWhiteSpace(payload.TimeTaken))
             return BadRequest(new { error = "Invalid timeTaken value" });
-
-        var platform = ResolvePlatform(payload.Platform);
-
-        object? builtAt = payload.BuiltAt.ValueKind == JsonValueKind.Undefined ? null : payload.BuiltAt;
-        object? cpuModels = payload.CpuModels.ValueKind == JsonValueKind.Undefined ? null : payload.CpuModels;
-        object? cpuSpeed = payload.CpuSpeed.ValueKind == JsonValueKind.Undefined ? null : payload.CpuSpeed;
+        if (!double.IsFinite(timeTakenMs) || timeTakenMs < 0)
+            return BadRequest(new { error = "Invalid timeTaken value" });
 
         var extraData = new
         {
+            payload.Phase,
+            payload.Command,
+            payload.Outcome,
+            payload.Success,
+            payload.Signal,
+            payload.ExitCode,
+            payload.Runner,
+            payload.Project,
+            payload.Target,
+            payload.RootCommand,
+            payload.RunId,
+            payload.PackageManager,
+            payload.PackageManagerVersion,
+            payload.ColdInstall,
+            payload.LockfileChanged,
+            payload.MeasurementSource,
+            payload.NpmTimers,
+            payload.Prebundled,
+            payload.DomContentLoadedMs,
+            payload.FirstContentfulPaintMs,
+            payload.ErrorCount,
             payload.Timestamp,
-            BuiltAt = builtAt,
+            payload.BuiltAt,
             payload.TotalMemory,
-            CpuModels = cpuModels,
-            CpuSpeed = cpuSpeed,
+            payload.CpuModels,
+            payload.CpuSpeed,
             payload.NodeVersion,
-            payload.V8Version,
-            payload.CustomIdentifier,
-            payload.AdditionalData
+            payload.CustomIdentifier
         };
 
-        var commandEventId = payload.Id ?? Guid.NewGuid().ToString();
-        var commandEvent = new CommandEvent
+        var metric = new BuildMetric
         {
-            Id = commandEventId,
-            SessionId = payload.SessionId,
+            Id = payload.Id ?? Guid.NewGuid().ToString(),
             UserName = payload.UserName ?? string.Empty,
             CpuCount = payload.CpuCount,
             Hostname = payload.Hostname ?? string.Empty,
-            Platform = platform,
+            Platform = platformStr,
             Os = payload.Os ?? string.Empty,
             Branch = payload.Branch ?? string.Empty,
             ProjectName = payload.ProjectName ?? string.Empty,
             Repository = payload.Repository ?? string.Empty,
             RepositoryName = payload.RepositoryName ?? string.Empty,
-            Type = "command",
-            Phase = payload.Phase!.ToLowerInvariant(),
-            Command = payload.Command,
-            ExitCode = payload.ExitCode,
-            Success = payload.Success,
-            Signal = payload.Signal,
-            ErrorCount = payload.ErrorCount,
             TimeTakenMs = timeTakenMs,
-            PackageManager = payload.PackageManager,
-            PackageManagerVersion = payload.PackageManagerVersion,
-            ColdInstall = payload.ColdInstall,
-            LockfileChanged = payload.LockfileChanged,
-            MeasurementSource = payload.MeasurementSource,
-            Prebundled = payload.Prebundled,
-            DomContentLoadedMs = payload.DomContentLoadedMs,
-            FirstContentfulPaintMs = payload.FirstContentfulPaintMs,
-            SpooledAt = payload.SpooledAt,
+            MetricType = MetricType,
+            BuildCategory = buildCategory,
+            ReloadType = reloadType,
             CommitSha = payload.CommitSha,
+            IsDebuggerAttached = false,
+            ExecutionEnvironment = environment,
+            SessionId = payload.SessionId,
+            SpooledAt = payload.SpooledAt,
             SourceEndpoint = "/command",
             ExtraData = JsonSerializer.Serialize(extraData)
         };
 
-        var npmTimers = new List<CommandEventNpmTimer>();
-        if (payload.NpmTimers != null)
+        await _queue.QueueBackgroundWorkItemAsync(new IngestBuildMetricWorkItem
         {
-            foreach (var timer in payload.NpmTimers)
-            {
-                npmTimers.Add(new CommandEventNpmTimer
-                {
-                    CommandEventId = commandEventId,
-                    TimerName = timer.Key,
-                    DurationMs = timer.Value
-                });
-            }
-        }
-
-        await _queue.QueueBackgroundWorkItemAsync(new IngestCommandEventWorkItem
-        {
-            CommandEvent = commandEvent,
-            NpmTimers = npmTimers,
+            BuildMetric = metric,
             RawPayloadJson = JsonSerializer.Serialize(payload),
             RawPayloadEndpoint = "/command",
             RawPayloadContentType = "application/json"
         });
 
         return Ok();
-    }
-
-    private static bool TryGetDouble(JsonElement value, out double result)
-    {
-        if (value.ValueKind == JsonValueKind.Number)
-            return value.TryGetDouble(out result);
-
-        if (value.ValueKind == JsonValueKind.String)
-        {
-            var text = value.GetString();
-            return double.TryParse(text, NumberStyles.Float | NumberStyles.AllowThousands,
-                CultureInfo.InvariantCulture, out result);
-        }
-
-        result = default;
-        return false;
-    }
-
-    private static string ResolvePlatform(JsonElement value)
-    {
-        if (value.ValueKind == JsonValueKind.String)
-            return value.GetString() ?? string.Empty;
-
-        if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var platformId))
-            return ((PlatformID)platformId).ToString();
-
-        return string.Empty;
     }
 }

@@ -1,15 +1,20 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Agoda.DevExTelemetry.Core.Models.Ingest.Json;
 
 namespace Agoda.DevExTelemetry.Core.Models.Ingest;
 
+/// <summary>
+/// <c>POST /command</c>: a devfeedback-js <c>CommandBuildData</c> event (install, dev server, package
+/// script or task-runner target), stored as a BuildMetric with <c>MetricType = "command"</c>.
+/// </summary>
 public class CommandPayload
 {
-    [JsonPropertyName("id")]
-    public string? Id { get; set; }
-
     [JsonPropertyName("sessionId")]
     public string? SessionId { get; set; }
+
+    [JsonPropertyName("id")]
+    public string? Id { get; set; }
 
     [JsonPropertyName("userName")]
     public string? UserName { get; set; }
@@ -21,10 +26,15 @@ public class CommandPayload
     public string? Hostname { get; set; }
 
     [JsonPropertyName("platform")]
-    public JsonElement Platform { get; set; }
+    [JsonConverter(typeof(LenientPlatformConverter))]
+    public PlatformID Platform { get; set; }
 
     [JsonPropertyName("os")]
     public string? Os { get; set; }
+
+    [JsonPropertyName("timeTaken")]
+    [JsonConverter(typeof(NumberOrStringConverter))]
+    public string? TimeTaken { get; set; }
 
     [JsonPropertyName("branch")]
     public string? Branch { get; set; }
@@ -39,19 +49,22 @@ public class CommandPayload
     public string? RepositoryName { get; set; }
 
     [JsonPropertyName("timestamp")]
+    [JsonConverter(typeof(EpochOrIsoConverter))]
     public long? Timestamp { get; set; }
 
     [JsonPropertyName("builtAt")]
-    public JsonElement BuiltAt { get; set; }
+    [JsonConverter(typeof(EpochOrIsoConverter))]
+    public long? BuiltAt { get; set; }
 
     [JsonPropertyName("totalMemory")]
-    public long? TotalMemory { get; set; }
+    public long TotalMemory { get; set; }
 
     [JsonPropertyName("cpuModels")]
-    public JsonElement CpuModels { get; set; }
+    public List<string>? CpuModels { get; set; }
 
     [JsonPropertyName("cpuSpeed")]
-    public JsonElement CpuSpeed { get; set; }
+    [JsonConverter(typeof(NumberOrNumberArrayConverter))]
+    public List<double>? CpuSpeed { get; set; }
 
     [JsonPropertyName("nodeVersion")]
     public string? NodeVersion { get; set; }
@@ -75,10 +88,10 @@ public class CommandPayload
     public string? Command { get; set; }
 
     [JsonPropertyName("exitCode")]
-    public int ExitCode { get; set; }
+    public int? ExitCode { get; set; }
 
     [JsonPropertyName("success")]
-    public bool Success { get; set; }
+    public bool? Success { get; set; }
 
     [JsonPropertyName("signal")]
     public string? Signal { get; set; }
@@ -86,8 +99,23 @@ public class CommandPayload
     [JsonPropertyName("errorCount")]
     public int? ErrorCount { get; set; }
 
-    [JsonPropertyName("timeTaken")]
-    public JsonElement TimeTaken { get; set; }
+    [JsonPropertyName("outcome")]
+    public string? Outcome { get; set; }
+
+    [JsonPropertyName("runner")]
+    public string? Runner { get; set; }
+
+    [JsonPropertyName("project")]
+    public string? Project { get; set; }
+
+    [JsonPropertyName("target")]
+    public string? Target { get; set; }
+
+    [JsonPropertyName("rootCommand")]
+    public string? RootCommand { get; set; }
+
+    [JsonPropertyName("runId")]
+    public string? RunId { get; set; }
 
     [JsonPropertyName("packageManager")]
     public string? PackageManager { get; set; }
@@ -117,6 +145,7 @@ public class CommandPayload
     public double? FirstContentfulPaintMs { get; set; }
 
     [JsonPropertyName("spooledAt")]
+    [JsonConverter(typeof(EpochOrIsoConverter))]
     public long? SpooledAt { get; set; }
 
     [JsonExtensionData]

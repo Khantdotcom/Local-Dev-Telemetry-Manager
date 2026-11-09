@@ -39,7 +39,7 @@ public class WebpackController : ControllerBase
 
     private async Task<IActionResult> IngestInternal(WebpackPayload payload, string sourceEndpoint)
     {
-        var platformStr = ((PlatformID)payload.Platform).ToString();
+        var platformStr = payload.Platform.ToString();
         var environment = _environmentDetector.Detect(
             payload.Hostname, payload.IsDebuggerAttached, platformStr, null);
 
